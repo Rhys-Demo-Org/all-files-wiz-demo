@@ -1,0 +1,30 @@
+# Start from the official Python slim base image
+FROM python:3.10-slim
+
+### Create a dedicated non-root user and group for security
+### This avoids running the container as root
+RUN groupadd --system --gid 1001 appgroup && useradd --system --no-create-home --shell /bin/false --uid 1001 --gid appgroup appuser
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy required files for security (also configure .dockerignore for extra security)
+
+# ONLY USE COPY . . FOR DEBUGGING IF NEEDED
+# COPY . . 
+
+### Update COPY commands to set ownership for the new user
+COPY --chown=appuser:appgroup app/ ./app/
+COPY --chown=appuser:appgroup wsgi.py .
+# COPY --chown=appuser:appgroup scripts/init-db-script.py ./scripts
+
+### Switch from root to the new unprivileged user
+USER appuser
+
+EXPOSE 5000
+
+# Command to run the app
+# This command is now correctly executed by the non-root 'appuser'
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app"]
